@@ -945,22 +945,6 @@
     addrEl.textContent = item.address;
     card.appendChild(addrEl);
 
-    // The mini map preview is no longer shown inline (it was too small to
-    // be useful and duplicated the "Map" chip below). We still build it
-    // off-screen so its <img> tags fire the same network requests, which is
-    // what actually caches the tiles for offline use — the "Map" chip opens
-    // the same cached tiles in the fullscreen viewer.
-    var mapBox = buildMapBox(item);
-    if (mapBox) {
-      mapBox.style.position = "absolute";
-      mapBox.style.width = "1px";
-      mapBox.style.height = "1px";
-      mapBox.style.overflow = "hidden";
-      mapBox.style.opacity = "0";
-      mapBox.style.pointerEvents = "none";
-      card.appendChild(mapBox);
-    }
-
     var nearbyRow = buildNearbyRow(item);
     if (nearbyRow) card.appendChild(nearbyRow);
 
