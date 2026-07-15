@@ -1,7 +1,7 @@
 // Service worker: cache-first app shell for full offline support.
 // Bump CACHE_VERSION whenever index.html/itinerary.js/icons change, so
 // clients pick up the new files instead of serving stale cached ones.
-const CACHE_VERSION = "tokyo-trip-v17";
+const CACHE_VERSION = "tokyo-trip-v18";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,12 +15,6 @@ const ASSETS = [
   "./icon-maskable-512.png"
 ];
 
-// Separate cache for map tiles (offline map feature). Kept apart from
-// the versioned app-shell cache so tile images persist across app updates
-// instead of being wiped every time CACHE_VERSION bumps.
-const TILE_CACHE = "tokyo-trip-tiles-v2";
-const TILE_HOST_PATTERN = /^https:\/\/api\.maptiler\.com\/maps\//;
-
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => cache.addAll(ASSETS))
@@ -33,7 +27,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k !== CACHE_VERSION && k !== TILE_CACHE)
+          .filter((k) => k !== CACHE_VERSION)
           .map((k) => caches.delete(k))
       )
     )
@@ -41,29 +35,12 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Cache-first for same-origin app shell assets and OSM map tiles (offline
-// maps); network passthrough for everything else (e.g. Google Maps links
-// open in a new tab, not fetched here).
+// Cache-first for same-origin app shell assets; network passthrough for
+// everything else (e.g. Google Maps links open in a new tab, not fetched
+// here — maps are online-only, not cached for offline use).
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
-
-  if (TILE_HOST_PATTERN.test(req.url)) {
-    event.respondWith(
-      caches.open(TILE_CACHE).then((cache) =>
-        cache.match(req).then((cached) => {
-          if (cached) return cached;
-          return fetch(req)
-            .then((res) => {
-              if (res.ok) cache.put(req, res.clone());
-              return res;
-            })
-            .catch(() => cached); // offline & not cached: nothing we can do
-        })
-      )
-    );
-    return;
-  }
 
   if (url.origin !== self.location.origin) {
     return; // let other cross-origin requests (maps links etc.) go straight to network
