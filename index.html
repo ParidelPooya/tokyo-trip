@@ -328,8 +328,6 @@
     position: relative;
     border-radius: 14px;
     overflow: hidden;
-    margin-bottom: 14px;
-    border: 1px solid var(--border);
     background: #1a1c22;
   }
   .map-grid {
@@ -344,17 +342,6 @@
     height: 100%;
     display: block;
     object-fit: cover;
-  }
-  .map-box { cursor: pointer; }
-  .map-tap-hint {
-    position: absolute;
-    bottom: 4px;
-    left: 8px;
-    font-size: 10.5px;
-    color: rgba(255,255,255,0.85);
-    background: rgba(0,0,0,0.45);
-    padding: 3px 7px;
-    border-radius: 8px;
   }
 
   #mapFullscreen {
@@ -452,36 +439,6 @@
     font-weight: 700;
     text-decoration: none;
   }
-  .map-pin {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -100%);
-    font-size: 30px;
-    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
-    pointer-events: none;
-  }
-  .map-unavailable {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    aspect-ratio: 16 / 9;
-    color: var(--text-dim);
-    font-size: 12.5px;
-    text-align: center;
-    padding: 12px;
-  }
-  .map-attribution {
-    position: absolute;
-    bottom: 2px;
-    right: 6px;
-    font-size: 9px;
-    color: rgba(255,255,255,0.55);
-    background: rgba(0,0,0,0.3);
-    padding: 1px 4px;
-    border-radius: 4px;
-  }
-
   #offlineMapsBanner {
     display: none;
     margin: 10px 16px 0;
@@ -1131,51 +1088,26 @@
     return tiles;
   }
 
+  // Builds an (off-screen) grid of <img> tags whose sole purpose is to
+  // trigger the network requests that get the stop's map tiles cached by
+  // the service worker for offline use. Not shown to the user directly —
+  // see the "Map" nearby-chip / openFullscreenMap for the visible UI.
   function buildMapBox(item) {
     if (item.lat == null || item.lng == null) return null;
     var box = document.createElement("div");
     box.className = "map-box";
-    box.setAttribute("role", "button");
-    box.setAttribute("aria-label", "Open full-screen map");
-    box.addEventListener("click", function () { openFullscreenMap(item); });
 
     var grid = document.createElement("div");
     grid.className = "map-grid";
     var tiles = tilesForItem(item);
-    var loadErrors = 0;
     tiles.forEach(function (t) {
       var img = document.createElement("img");
-      img.loading = "lazy";
+      img.loading = "eager";
       img.alt = "";
       img.src = tileUrl(t.x, t.y, t.z);
-      img.addEventListener("error", function () {
-        loadErrors++;
-        if (loadErrors === tiles.length) {
-          box.innerHTML = "";
-          var unavailable = document.createElement("div");
-          unavailable.className = "map-unavailable";
-          unavailable.textContent = "🗺️ Map not cached yet — view this stop once while online (or tap \"Browse all\" below) so it works offline later.";
-          box.appendChild(unavailable);
-        }
-      });
       grid.appendChild(img);
     });
     box.appendChild(grid);
-
-    var pin = document.createElement("div");
-    pin.className = "map-pin";
-    pin.textContent = "📍";
-    box.appendChild(pin);
-
-    var attribution = document.createElement("div");
-    attribution.className = "map-attribution";
-    attribution.textContent = "© OpenStreetMap";
-    box.appendChild(attribution);
-
-    var tapHint = document.createElement("div");
-    tapHint.className = "map-tap-hint";
-    tapHint.textContent = "Tap to enlarge";
-    box.appendChild(tapHint);
 
     return box;
   }
@@ -1306,8 +1238,21 @@
     addrEl.textContent = item.address;
     card.appendChild(addrEl);
 
+    // The mini map preview is no longer shown inline (it was too small to
+    // be useful and duplicated the "Map" chip below). We still build it
+    // off-screen so its <img> tags fire the same network requests, which is
+    // what actually caches the tiles for offline use — the "Map" chip opens
+    // the same cached tiles in the fullscreen viewer.
     var mapBox = buildMapBox(item);
-    if (mapBox) card.appendChild(mapBox);
+    if (mapBox) {
+      mapBox.style.position = "absolute";
+      mapBox.style.width = "1px";
+      mapBox.style.height = "1px";
+      mapBox.style.overflow = "hidden";
+      mapBox.style.opacity = "0";
+      mapBox.style.pointerEvents = "none";
+      card.appendChild(mapBox);
+    }
     if (mapBox && window.TripApp && window.TripApp.markMapVisited) {
       window.TripApp.markMapVisited(item);
     }
