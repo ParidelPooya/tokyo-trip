@@ -1,7 +1,7 @@
 // Service worker: cache-first app shell for full offline support.
 // Bump CACHE_VERSION whenever index.html/itinerary.js/icons change, so
 // clients pick up the new files instead of serving stale cached ones.
-const CACHE_VERSION = "tokyo-trip-v19";
+const CACHE_VERSION = "tokyo-trip-v20";
 const ASSETS = [
   "./",
   "./index.html",
