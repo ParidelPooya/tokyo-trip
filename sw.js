@@ -1,7 +1,7 @@
 // Service worker: cache-first app shell for full offline support.
 // Bump CACHE_VERSION whenever index.html/itinerary.js/icons change, so
 // clients pick up the new files instead of serving stale cached ones.
-const CACHE_VERSION = "tokyo-trip-v16";
+const CACHE_VERSION = "tokyo-trip-v17";
 const ASSETS = [
   "./",
   "./index.html",
@@ -15,11 +15,11 @@ const ASSETS = [
   "./icon-maskable-512.png"
 ];
 
-// Separate cache for OSM map tiles (offline map feature). Kept apart from
+// Separate cache for map tiles (offline map feature). Kept apart from
 // the versioned app-shell cache so tile images persist across app updates
 // instead of being wiped every time CACHE_VERSION bumps.
-const TILE_CACHE = "tokyo-trip-tiles-v1";
-const TILE_HOST_PATTERN = /^https:\/\/[abc]\.tile\.openstreetmap\.org\//;
+const TILE_CACHE = "tokyo-trip-tiles-v2";
+const TILE_HOST_PATTERN = /^https:\/\/api\.maptiler\.com\/maps\//;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

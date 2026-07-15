@@ -406,6 +406,17 @@
     filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6));
     pointer-events: none;
   }
+  #mapFullscreen .mfs-attribution {
+    position: absolute;
+    bottom: 6px;
+    right: 8px;
+    font-size: 10px;
+    color: rgba(255,255,255,0.75);
+    background: rgba(0,0,0,0.4);
+    padding: 2px 6px;
+    border-radius: 5px;
+    pointer-events: none;
+  }
   #mapFullscreen .mfs-footer {
     display: flex;
     gap: 10px;
@@ -438,49 +449,6 @@
     font-size: 13.5px;
     font-weight: 700;
     text-decoration: none;
-  }
-  #offlineMapsBanner {
-    display: none;
-    margin: 10px 16px 0;
-    padding: 12px 14px;
-    background: rgba(78,205,196,0.08);
-    border: 1px solid rgba(78,205,196,0.25);
-    border-radius: 12px;
-    font-size: 12.5px;
-    color: var(--text-dim);
-  }
-  #offlineMapsBanner.show { display: block; }
-  #offlineMapsBanner .omb-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-  }
-  #offlineMapsBanner button {
-    background: var(--accent-2);
-    color: #08201d;
-    border: none;
-    border-radius: 9px;
-    padding: 8px 12px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  #offlineMapsBanner button:disabled { opacity: 0.6; }
-  #offlineMapsBanner .omb-progress {
-    margin-top: 8px;
-    height: 6px;
-    border-radius: 3px;
-    background: rgba(255,255,255,0.08);
-    overflow: hidden;
-  }
-  #offlineMapsBanner .omb-progress-bar {
-    height: 100%;
-    width: 0%;
-    background: var(--accent-2);
-    transition: width 0.2s ease;
   }
 
   .distance-box {
@@ -799,13 +767,6 @@
     </div>
   </div>
   <div id="offlineBadge">📡 Offline — showing cached itinerary</div>
-  <div id="offlineMapsBanner">
-    <div class="omb-row">
-      <span id="ombText">📦 Maps cache automatically as you browse each stop. Tap "Browse all" once while online so every map works offline later.</span>
-      <button id="ombBtn" type="button">Browse all</button>
-    </div>
-    <div class="omb-progress"><div class="omb-progress-bar" id="ombProgressBar"></div></div>
-  </div>
 
   <header>
     <button id="menuBtn" aria-label="Open menu">☰</button>
@@ -852,6 +813,7 @@
   <div class="mfs-body">
     <div class="mfs-grid" id="mfsGrid"></div>
     <div class="mfs-pin">📍</div>
+    <div class="mfs-attribution">© MapTiler © OpenStreetMap contributors</div>
   </div>
   <div class="mfs-footer">
     <button class="mfs-zoom-out" id="mfsZoomOut" type="button" aria-label="Zoom out">−</button>
@@ -1054,8 +1016,16 @@
   }
 
   // ---------- Offline map (OSM tile grid) ----------
-  var MAP_ZOOM = 15;
-  var TILE_SUBDOMAINS = ["a", "b", "c"];
+  var MAP_ZOOM = 16;
+  // MapTiler raster tiles (512px, higher detail per tile than OSM's 256px).
+  // Free-tier API key — caching in the browser/service-worker for a single
+  // end-user's offline use is explicitly permitted by MapTiler's terms
+  // (see "End-user Device Caching" in their Cloud Terms); bulk/build-time
+  // downloading or redistributing tiles is not, so tiles are only ever
+  // fetched live as the user views a stop (same model as before, just a
+  // better tile source/quality).
+  var MAPTILER_KEY = "0fnB5NEzWFhFTs2psqrr";
+  var MAPTILER_STYLE = "streets-v2";
 
   function lngToTileX(lng, z) {
     return Math.floor((lng + 180) / 360 * Math.pow(2, z));
@@ -1065,8 +1035,7 @@
     return Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * Math.pow(2, z));
   }
   function tileUrl(x, y, z) {
-    var sub = TILE_SUBDOMAINS[(x + y) % TILE_SUBDOMAINS.length];
-    return "https://" + sub + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
+    return "https://api.maptiler.com/maps/" + MAPTILER_STYLE + "/" + z + "/" + x + "/" + y + ".png?key=" + MAPTILER_KEY;
   }
 
   // Returns the tile coordinates for a grid of `size` x `size` tiles (odd
@@ -1116,8 +1085,8 @@
   var fullscreenZoom = MAP_ZOOM;
   var fullscreenItem = null;
   var FULLSCREEN_GRID_SIZE = 5; // 5x5 tiles gives more context than the 3x3 inline preview
-  var MIN_ZOOM = 12;
-  var MAX_ZOOM = 18;
+  var MIN_ZOOM = 13;
+  var MAX_ZOOM = 19;
 
   function renderFullscreenGrid() {
     if (!fullscreenItem) return;
@@ -1144,9 +1113,6 @@
       "https://www.google.com/maps/search/?api=1&query=" + item.lat + "," + item.lng;
     renderFullscreenGrid();
     document.getElementById("mapFullscreen").classList.add("show");
-    if (window.TripApp && window.TripApp.markMapVisited) {
-      window.TripApp.markMapVisited(item);
-    }
   }
 
   function closeFullscreenMap() {
@@ -1252,9 +1218,6 @@
       mapBox.style.opacity = "0";
       mapBox.style.pointerEvents = "none";
       card.appendChild(mapBox);
-    }
-    if (mapBox && window.TripApp && window.TripApp.markMapVisited) {
-      window.TripApp.markMapVisited(item);
     }
 
     var nearbyRow = buildNearbyRow(item);
@@ -1588,108 +1551,6 @@
   // prohibits. Instead, each map tile is cached organically via the service
   // worker's normal cache-first handler the first time you actually view a
   // stop — completely compliant, since that's just regular browsing. This
-  // banner nudges you to page through every stop once (via Next) while you
-  // still have signal, so all maps are cached before you go offline.
-  (function () {
-    var VISITED_KEY = "tripapp_stops_map_visited_v1";
-    var banner = document.getElementById("offlineMapsBanner");
-    var textEl = document.getElementById("ombText");
-    var btn = document.getElementById("ombBtn");
-    var progressBar = document.getElementById("ombProgressBar");
-
-    function loadVisited() {
-      try {
-        var raw = localStorage.getItem(VISITED_KEY);
-        return raw ? JSON.parse(raw) : {};
-      } catch (e) { return {}; }
-    }
-    function saveVisited(v) {
-      try { localStorage.setItem(VISITED_KEY, JSON.stringify(v)); } catch (e) {}
-    }
-
-    var visited = loadVisited();
-
-    function stopKey(item) {
-      return item.day + "|" + item.title + "|" + (item.dayVariant || "");
-    }
-
-    // Called every render() so viewing a stop (including via Next/Prev)
-    // marks its map as "seen" — this is what actually populates the SW's
-    // tile cache, since the <img> requests for that stop's tiles fire when
-    // buildMapBox() renders them.
-    window.TripApp = window.TripApp || {};
-    window.TripApp.markMapVisited = function (item) {
-      if (item.lat == null || item.lng == null) return;
-      var key = stopKey(item);
-      if (!visited[key]) {
-        visited[key] = true;
-        saveVisited(visited);
-        updateBanner();
-      }
-    };
-
-    function updateBanner() {
-      var total = ITINERARY.filter(function (it) { return it.lat != null && it.lng != null; }).length;
-      var seen = Object.keys(visited).length;
-      var pct = total ? Math.round((seen / total) * 100) : 0;
-      progressBar.style.width = pct + "%";
-
-      if (seen >= total) {
-        banner.classList.remove("show");
-        return;
-      }
-      textEl.textContent = "📦 Maps cache as you browse: " + seen + " / " + total + " stops viewed. Tap \"Browse all\" once while online so every map works offline later.";
-      banner.classList.add("show");
-    }
-
-    btn.addEventListener("click", function () {
-      // Jump through every remaining un-visited stop briefly so its map
-      // tiles get requested (and thus cached) — a normal sequence of page
-      // views, not a scripted bulk-tile fetch. Walks the FULL ITINERARY
-      // (all three Day 4 options: A-clear, A-rainy, B) rather than just the
-      // currently selected Day 4 variant's items, switching day4Variant as
-      // needed so every option's stops get their maps cached too.
-      btn.disabled = true;
-      btn.textContent = "Browsing…";
-      var originalVariant = day4Variant;
-      var targets = ITINERARY.filter(function (it) {
-        return it.lat != null && it.lng != null && !visited[stopKey(it)];
-      });
-      var i = 0;
-      function step() {
-        if (i >= targets.length) {
-          btn.disabled = false;
-          btn.textContent = "Browse all";
-          // Restore whichever Day 4 variant the user originally had selected.
-          if (day4Variant !== originalVariant) {
-            day4Variant = originalVariant;
-            try { localStorage.setItem(DAY4_VARIANT_KEY, day4Variant); } catch (e) {}
-            items = computeItems();
-          }
-          idx = findCurrentIndex(new Date());
-          render();
-          return;
-        }
-        var target = targets[i];
-        if (target.dayVariant && target.dayVariant !== day4Variant) {
-          day4Variant = target.dayVariant;
-          try { localStorage.setItem(DAY4_VARIANT_KEY, day4Variant); } catch (e) {}
-        }
-        items = computeItems();
-        var targetIdx = items.indexOf(target);
-        if (targetIdx >= 0) {
-          idx = targetIdx;
-          render();
-        }
-        i++;
-        setTimeout(step, 350); // brief pause so each stop's tile <img> requests actually fire/complete
-      }
-      step();
-    });
-
-    updateBanner();
-  })();
-
   // ---------- Sidebar navigation + reference pages ----------
   (function () {
     var sidebar = document.getElementById("sidebar");
