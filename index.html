@@ -345,6 +345,113 @@
     display: block;
     object-fit: cover;
   }
+  .map-box { cursor: pointer; }
+  .map-tap-hint {
+    position: absolute;
+    bottom: 4px;
+    left: 8px;
+    font-size: 10.5px;
+    color: rgba(255,255,255,0.85);
+    background: rgba(0,0,0,0.45);
+    padding: 3px 7px;
+    border-radius: 8px;
+  }
+
+  #mapFullscreen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0f1115;
+    z-index: 40;
+    flex-direction: column;
+  }
+  #mapFullscreen.show { display: flex; }
+  #mapFullscreen .mfs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #mapFullscreen .mfs-title {
+    font-size: 15px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 12px;
+  }
+  #mapFullscreen .mfs-close {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  #mapFullscreen .mfs-body {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  #mapFullscreen .mfs-grid {
+    display: grid;
+    width: 100%;
+    height: 100%;
+  }
+  #mapFullscreen .mfs-grid img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  #mapFullscreen .mfs-pin {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    font-size: 44px;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6));
+    pointer-events: none;
+  }
+  #mapFullscreen .mfs-footer {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px calc(12px + var(--safe-bottom));
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #mapFullscreen .mfs-footer button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #mapFullscreen .mfs-footer .mfs-zoom-out { flex: 0 0 auto; width: 48px; }
+  #mapFullscreen .mfs-footer .mfs-zoom-in { flex: 0 0 auto; width: 48px; }
+  #mapFullscreen .mfs-footer a.mfs-external {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--accent-2);
+    color: #08201d;
+    font-size: 13.5px;
+    font-weight: 700;
+    text-decoration: none;
+  }
   .map-pin {
     position: absolute;
     top: 50%;
@@ -779,6 +886,22 @@
 
   <div id="referenceView"></div>
 </div>
+
+<div id="mapFullscreen">
+  <div class="mfs-header">
+    <div class="mfs-title" id="mfsTitle">Map</div>
+    <button class="mfs-close" id="mfsCloseBtn" type="button" aria-label="Close map">✕</button>
+  </div>
+  <div class="mfs-body">
+    <div class="mfs-grid" id="mfsGrid"></div>
+    <div class="mfs-pin">📍</div>
+  </div>
+  <div class="mfs-footer">
+    <button class="mfs-zoom-out" id="mfsZoomOut" type="button" aria-label="Zoom out">−</button>
+    <a class="mfs-external" id="mfsExternalLink" href="#" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+    <button class="mfs-zoom-in" id="mfsZoomIn" type="button" aria-label="Zoom in">+</button>
+  </div>
+</div>
 </div>
 
 <script src="itinerary.js"></script>
@@ -842,36 +965,57 @@
   // Order chips consistently regardless of object key iteration order.
   var NEARBY_CATEGORY_ORDER = ["halalFood", "foodToTry", "coffeeShops", "extraSpots"];
 
-  function buildNearbyRow(zone) {
-    if (!zone || typeof ZONE_CATEGORIES === "undefined") return null;
-    var cats = ZONE_CATEGORIES[zone];
-    if (!cats) return null;
+  function buildNearbyRow(item) {
+    var zone = item && item.zone;
+    var cats = (zone && typeof ZONE_CATEGORIES !== "undefined") ? ZONE_CATEGORIES[zone] : null;
 
     var row = document.createElement("div");
     row.className = "nearby-row";
     var any = false;
 
-    NEARBY_CATEGORY_ORDER.forEach(function (key) {
-      if (!cats[key]) return;
+    // Map chip: always shown when the stop has coordinates, independent of
+    // zone/reference-category data, since every stop can show its map.
+    if (item && item.lat != null && item.lng != null) {
       any = true;
-      var meta = NEARBY_CATEGORY_META[key];
-      var chip = document.createElement("button");
-      chip.className = "nearby-chip";
-      chip.type = "button";
-      var emojiSpan = document.createElement("span");
-      emojiSpan.className = "nearby-emoji";
-      emojiSpan.textContent = meta.emoji;
-      var labelSpan = document.createElement("span");
-      labelSpan.textContent = meta.label;
-      chip.appendChild(emojiSpan);
-      chip.appendChild(labelSpan);
-      chip.addEventListener("click", function () {
-        if (window.TripApp && window.TripApp.navigateTo) {
-          window.TripApp.navigateTo(key);
-        }
+      var mapChip = document.createElement("button");
+      mapChip.className = "nearby-chip";
+      mapChip.type = "button";
+      var mapEmoji = document.createElement("span");
+      mapEmoji.className = "nearby-emoji";
+      mapEmoji.textContent = "🗺️";
+      var mapLabel = document.createElement("span");
+      mapLabel.textContent = "Map";
+      mapChip.appendChild(mapEmoji);
+      mapChip.appendChild(mapLabel);
+      mapChip.addEventListener("click", function () {
+        openFullscreenMap(item);
       });
-      row.appendChild(chip);
-    });
+      row.appendChild(mapChip);
+    }
+
+    if (cats) {
+      NEARBY_CATEGORY_ORDER.forEach(function (key) {
+        if (!cats[key]) return;
+        any = true;
+        var meta = NEARBY_CATEGORY_META[key];
+        var chip = document.createElement("button");
+        chip.className = "nearby-chip";
+        chip.type = "button";
+        var emojiSpan = document.createElement("span");
+        emojiSpan.className = "nearby-emoji";
+        emojiSpan.textContent = meta.emoji;
+        var labelSpan = document.createElement("span");
+        labelSpan.textContent = meta.label;
+        chip.appendChild(emojiSpan);
+        chip.appendChild(labelSpan);
+        chip.addEventListener("click", function () {
+          if (window.TripApp && window.TripApp.navigateTo) {
+            window.TripApp.navigateTo(key);
+          }
+        });
+        row.appendChild(chip);
+      });
+    }
 
     return any ? row : null;
   }
@@ -968,15 +1112,20 @@
     return "https://" + sub + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
   }
 
-  // Returns the 9 tile coordinates (3x3, centered on the stop) used for both
-  // rendering the mini-map and pre-fetching for offline use.
-  function tilesForItem(item) {
-    var cx = lngToTileX(item.lng, MAP_ZOOM);
-    var cy = latToTileY(item.lat, MAP_ZOOM);
+  // Returns the tile coordinates for a grid of `size` x `size` tiles (odd
+  // number, centered on the stop) at the given zoom. Defaults to the 3x3
+  // grid used for the inline preview + offline pre-caching; the fullscreen
+  // map view requests a larger grid and/or different zoom on demand.
+  function tilesForItem(item, zoom, size) {
+    zoom = zoom || MAP_ZOOM;
+    size = size || 3;
+    var half = Math.floor(size / 2);
+    var cx = lngToTileX(item.lng, zoom);
+    var cy = latToTileY(item.lat, zoom);
     var tiles = [];
-    for (var dy = -1; dy <= 1; dy++) {
-      for (var dx = -1; dx <= 1; dx++) {
-        tiles.push({ x: cx + dx, y: cy + dy, z: MAP_ZOOM });
+    for (var dy = -half; dy <= half; dy++) {
+      for (var dx = -half; dx <= half; dx++) {
+        tiles.push({ x: cx + dx, y: cy + dy, z: zoom });
       }
     }
     return tiles;
@@ -986,6 +1135,9 @@
     if (item.lat == null || item.lng == null) return null;
     var box = document.createElement("div");
     box.className = "map-box";
+    box.setAttribute("role", "button");
+    box.setAttribute("aria-label", "Open full-screen map");
+    box.addEventListener("click", function () { openFullscreenMap(item); });
 
     var grid = document.createElement("div");
     grid.className = "map-grid";
@@ -1020,8 +1172,63 @@
     attribution.textContent = "© OpenStreetMap";
     box.appendChild(attribution);
 
+    var tapHint = document.createElement("div");
+    tapHint.className = "map-tap-hint";
+    tapHint.textContent = "Tap to enlarge";
+    box.appendChild(tapHint);
+
     return box;
   }
+
+  // ---------- Fullscreen map viewer ----------
+  var fullscreenZoom = MAP_ZOOM;
+  var fullscreenItem = null;
+  var FULLSCREEN_GRID_SIZE = 5; // 5x5 tiles gives more context than the 3x3 inline preview
+  var MIN_ZOOM = 12;
+  var MAX_ZOOM = 18;
+
+  function renderFullscreenGrid() {
+    if (!fullscreenItem) return;
+    var gridEl = document.getElementById("mfsGrid");
+    gridEl.innerHTML = "";
+    gridEl.style.gridTemplateColumns = "repeat(" + FULLSCREEN_GRID_SIZE + ", 1fr)";
+    gridEl.style.gridTemplateRows = "repeat(" + FULLSCREEN_GRID_SIZE + ", 1fr)";
+    var tiles = tilesForItem(fullscreenItem, fullscreenZoom, FULLSCREEN_GRID_SIZE);
+    tiles.forEach(function (t) {
+      var img = document.createElement("img");
+      img.loading = "eager";
+      img.alt = "";
+      img.src = tileUrl(t.x, t.y, t.z);
+      gridEl.appendChild(img);
+    });
+  }
+
+  function openFullscreenMap(item) {
+    if (item.lat == null || item.lng == null) return;
+    fullscreenItem = item;
+    fullscreenZoom = MAP_ZOOM;
+    document.getElementById("mfsTitle").textContent = item.title;
+    document.getElementById("mfsExternalLink").href =
+      "https://www.google.com/maps/search/?api=1&query=" + item.lat + "," + item.lng;
+    renderFullscreenGrid();
+    document.getElementById("mapFullscreen").classList.add("show");
+    if (window.TripApp && window.TripApp.markMapVisited) {
+      window.TripApp.markMapVisited(item);
+    }
+  }
+
+  function closeFullscreenMap() {
+    document.getElementById("mapFullscreen").classList.remove("show");
+    fullscreenItem = null;
+  }
+
+  document.getElementById("mfsCloseBtn").addEventListener("click", closeFullscreenMap);
+  document.getElementById("mfsZoomIn").addEventListener("click", function () {
+    if (fullscreenZoom < MAX_ZOOM) { fullscreenZoom++; renderFullscreenGrid(); }
+  });
+  document.getElementById("mfsZoomOut").addEventListener("click", function () {
+    if (fullscreenZoom > MIN_ZOOM) { fullscreenZoom--; renderFullscreenGrid(); }
+  });
 
 
 
@@ -1105,7 +1312,7 @@
       window.TripApp.markMapVisited(item);
     }
 
-    var nearbyRow = buildNearbyRow(item.zone);
+    var nearbyRow = buildNearbyRow(item);
     if (nearbyRow) card.appendChild(nearbyRow);
 
     if (item.notes) {
@@ -1493,20 +1700,42 @@
     btn.addEventListener("click", function () {
       // Jump through every remaining un-visited stop briefly so its map
       // tiles get requested (and thus cached) — a normal sequence of page
-      // views, not a scripted bulk-tile fetch.
+      // views, not a scripted bulk-tile fetch. Walks the FULL ITINERARY
+      // (all three Day 4 options: A-clear, A-rainy, B) rather than just the
+      // currently selected Day 4 variant's items, switching day4Variant as
+      // needed so every option's stops get their maps cached too.
       btn.disabled = true;
       btn.textContent = "Browsing…";
-      var targets = items.filter(function (it) { return !visited[stopKey(it)]; });
+      var originalVariant = day4Variant;
+      var targets = ITINERARY.filter(function (it) {
+        return it.lat != null && it.lng != null && !visited[stopKey(it)];
+      });
       var i = 0;
       function step() {
         if (i >= targets.length) {
           btn.disabled = false;
           btn.textContent = "Browse all";
-          render(); // return to a sensible view when done
+          // Restore whichever Day 4 variant the user originally had selected.
+          if (day4Variant !== originalVariant) {
+            day4Variant = originalVariant;
+            try { localStorage.setItem(DAY4_VARIANT_KEY, day4Variant); } catch (e) {}
+            items = computeItems();
+          }
+          idx = findCurrentIndex(new Date());
+          render();
           return;
         }
-        idx = items.indexOf(targets[i]);
-        render();
+        var target = targets[i];
+        if (target.dayVariant && target.dayVariant !== day4Variant) {
+          day4Variant = target.dayVariant;
+          try { localStorage.setItem(DAY4_VARIANT_KEY, day4Variant); } catch (e) {}
+        }
+        items = computeItems();
+        var targetIdx = items.indexOf(target);
+        if (targetIdx >= 0) {
+          idx = targetIdx;
+          render();
+        }
         i++;
         setTimeout(step, 350); // brief pause so each stop's tile <img> requests actually fire/complete
       }
