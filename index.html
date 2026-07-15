@@ -324,6 +324,101 @@
   }
   .full-details.show { display: block; }
 
+  .map-box {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    background: #1a1c22;
+  }
+  .map-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .map-grid img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+  }
+  .map-pin {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    font-size: 30px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.6));
+    pointer-events: none;
+  }
+  .map-unavailable {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 9;
+    color: var(--text-dim);
+    font-size: 12.5px;
+    text-align: center;
+    padding: 12px;
+  }
+  .map-attribution {
+    position: absolute;
+    bottom: 2px;
+    right: 6px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.55);
+    background: rgba(0,0,0,0.3);
+    padding: 1px 4px;
+    border-radius: 4px;
+  }
+
+  #offlineMapsBanner {
+    display: none;
+    margin: 10px 16px 0;
+    padding: 12px 14px;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.25);
+    border-radius: 12px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  #offlineMapsBanner.show { display: block; }
+  #offlineMapsBanner .omb-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  #offlineMapsBanner button {
+    background: var(--accent-2);
+    color: #08201d;
+    border: none;
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #offlineMapsBanner button:disabled { opacity: 0.6; }
+  #offlineMapsBanner .omb-progress {
+    margin-top: 8px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+    overflow: hidden;
+  }
+  #offlineMapsBanner .omb-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent-2);
+    transition: width 0.2s ease;
+  }
+
   .distance-box {
     margin-top: auto;
     display: flex;
@@ -640,6 +735,13 @@
     </div>
   </div>
   <div id="offlineBadge">📡 Offline — showing cached itinerary</div>
+  <div id="offlineMapsBanner">
+    <div class="omb-row">
+      <span id="ombText">📦 Maps cache automatically as you browse each stop. Tap "Browse all" once while online so every map works offline later.</span>
+      <button id="ombBtn" type="button">Browse all</button>
+    </div>
+    <div class="omb-progress"><div class="omb-progress-bar" id="ombProgressBar"></div></div>
+  </div>
 
   <header>
     <button id="menuBtn" aria-label="Open menu">☰</button>
@@ -850,6 +952,79 @@
     return R * c;
   }
 
+  // ---------- Offline map (OSM tile grid) ----------
+  var MAP_ZOOM = 15;
+  var TILE_SUBDOMAINS = ["a", "b", "c"];
+
+  function lngToTileX(lng, z) {
+    return Math.floor((lng + 180) / 360 * Math.pow(2, z));
+  }
+  function latToTileY(lat, z) {
+    var rad = lat * Math.PI / 180;
+    return Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * Math.pow(2, z));
+  }
+  function tileUrl(x, y, z) {
+    var sub = TILE_SUBDOMAINS[(x + y) % TILE_SUBDOMAINS.length];
+    return "https://" + sub + ".tile.openstreetmap.org/" + z + "/" + x + "/" + y + ".png";
+  }
+
+  // Returns the 9 tile coordinates (3x3, centered on the stop) used for both
+  // rendering the mini-map and pre-fetching for offline use.
+  function tilesForItem(item) {
+    var cx = lngToTileX(item.lng, MAP_ZOOM);
+    var cy = latToTileY(item.lat, MAP_ZOOM);
+    var tiles = [];
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        tiles.push({ x: cx + dx, y: cy + dy, z: MAP_ZOOM });
+      }
+    }
+    return tiles;
+  }
+
+  function buildMapBox(item) {
+    if (item.lat == null || item.lng == null) return null;
+    var box = document.createElement("div");
+    box.className = "map-box";
+
+    var grid = document.createElement("div");
+    grid.className = "map-grid";
+    var tiles = tilesForItem(item);
+    var loadErrors = 0;
+    tiles.forEach(function (t) {
+      var img = document.createElement("img");
+      img.loading = "lazy";
+      img.alt = "";
+      img.src = tileUrl(t.x, t.y, t.z);
+      img.addEventListener("error", function () {
+        loadErrors++;
+        if (loadErrors === tiles.length) {
+          box.innerHTML = "";
+          var unavailable = document.createElement("div");
+          unavailable.className = "map-unavailable";
+          unavailable.textContent = "🗺️ Map not cached yet — view this stop once while online (or tap \"Browse all\" below) so it works offline later.";
+          box.appendChild(unavailable);
+        }
+      });
+      grid.appendChild(img);
+    });
+    box.appendChild(grid);
+
+    var pin = document.createElement("div");
+    pin.className = "map-pin";
+    pin.textContent = "📍";
+    box.appendChild(pin);
+
+    var attribution = document.createElement("div");
+    attribution.className = "map-attribution";
+    attribution.textContent = "© OpenStreetMap";
+    box.appendChild(attribution);
+
+    return box;
+  }
+
+
+
   // Find "current" item index based on now: the item whose start<=now<end.
   // If none active, pick the next upcoming item; if past all, pick the last.
   function findCurrentIndex(now) {
@@ -923,6 +1098,12 @@
     addrEl.className = "address";
     addrEl.textContent = item.address;
     card.appendChild(addrEl);
+
+    var mapBox = buildMapBox(item);
+    if (mapBox) card.appendChild(mapBox);
+    if (mapBox && window.TripApp && window.TripApp.markMapVisited) {
+      window.TripApp.markMapVisited(item);
+    }
 
     var nearbyRow = buildNearbyRow(item.zone);
     if (nearbyRow) card.appendChild(nearbyRow);
@@ -1245,6 +1426,94 @@
     window.addEventListener("online", updateOnlineStatus);
     window.addEventListener("offline", updateOnlineStatus);
     updateOnlineStatus();
+  })();
+
+  // ---------- Offline maps: encourage browsing all stops once while online ----------
+  // IMPORTANT: OpenStreetMap's tile usage policy explicitly forbids bulk/
+  // scripted downloading of tiles (see operations.osmfoundation.org/policies/tiles).
+  // A "download all maps now" button would fire ~150 rapid-fire tile requests,
+  // which crosses into the kind of automated bulk fetching their policy
+  // prohibits. Instead, each map tile is cached organically via the service
+  // worker's normal cache-first handler the first time you actually view a
+  // stop — completely compliant, since that's just regular browsing. This
+  // banner nudges you to page through every stop once (via Next) while you
+  // still have signal, so all maps are cached before you go offline.
+  (function () {
+    var VISITED_KEY = "tripapp_stops_map_visited_v1";
+    var banner = document.getElementById("offlineMapsBanner");
+    var textEl = document.getElementById("ombText");
+    var btn = document.getElementById("ombBtn");
+    var progressBar = document.getElementById("ombProgressBar");
+
+    function loadVisited() {
+      try {
+        var raw = localStorage.getItem(VISITED_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) { return {}; }
+    }
+    function saveVisited(v) {
+      try { localStorage.setItem(VISITED_KEY, JSON.stringify(v)); } catch (e) {}
+    }
+
+    var visited = loadVisited();
+
+    function stopKey(item) {
+      return item.day + "|" + item.title + "|" + (item.dayVariant || "");
+    }
+
+    // Called every render() so viewing a stop (including via Next/Prev)
+    // marks its map as "seen" — this is what actually populates the SW's
+    // tile cache, since the <img> requests for that stop's tiles fire when
+    // buildMapBox() renders them.
+    window.TripApp = window.TripApp || {};
+    window.TripApp.markMapVisited = function (item) {
+      if (item.lat == null || item.lng == null) return;
+      var key = stopKey(item);
+      if (!visited[key]) {
+        visited[key] = true;
+        saveVisited(visited);
+        updateBanner();
+      }
+    };
+
+    function updateBanner() {
+      var total = ITINERARY.filter(function (it) { return it.lat != null && it.lng != null; }).length;
+      var seen = Object.keys(visited).length;
+      var pct = total ? Math.round((seen / total) * 100) : 0;
+      progressBar.style.width = pct + "%";
+
+      if (seen >= total) {
+        banner.classList.remove("show");
+        return;
+      }
+      textEl.textContent = "📦 Maps cache as you browse: " + seen + " / " + total + " stops viewed. Tap \"Browse all\" once while online so every map works offline later.";
+      banner.classList.add("show");
+    }
+
+    btn.addEventListener("click", function () {
+      // Jump through every remaining un-visited stop briefly so its map
+      // tiles get requested (and thus cached) — a normal sequence of page
+      // views, not a scripted bulk-tile fetch.
+      btn.disabled = true;
+      btn.textContent = "Browsing…";
+      var targets = items.filter(function (it) { return !visited[stopKey(it)]; });
+      var i = 0;
+      function step() {
+        if (i >= targets.length) {
+          btn.disabled = false;
+          btn.textContent = "Browse all";
+          render(); // return to a sensible view when done
+          return;
+        }
+        idx = items.indexOf(targets[i]);
+        render();
+        i++;
+        setTimeout(step, 350); // brief pause so each stop's tile <img> requests actually fire/complete
+      }
+      step();
+    });
+
+    updateBanner();
   })();
 
   // ---------- Sidebar navigation + reference pages ----------
