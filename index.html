@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tokyo Trip · Aug 2026</title>
+<link rel="icon" href="./icon-192.png">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="theme-color" content="#0f1115">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tokyo Trip">
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1b1f2a;
+    --card-2: #222838;
+    --accent: #ff6b6b;
+    --accent-2: #4ecdc4;
+    --text: #f2f4f8;
+    --text-dim: #9aa3b5;
+    --border: #2b3142;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+  #appShell {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  /* Sidebar */
+  #sidebarOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 30;
+  }
+  #sidebarOverlay.show { display: block; }
+
+  #sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 78%;
+    max-width: 300px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    z-index: 31;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    overflow-y: auto;
+  }
+  #sidebar.open { transform: translateX(0); }
+
+  #sidebar .sidebar-header {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #sidebar nav {
+    flex: 1;
+    padding: 8px;
+  }
+  #sidebar .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 2px;
+  }
+  #sidebar .nav-item .emoji { font-size: 17px; width: 20px; text-align: center; flex-shrink: 0; }
+  #sidebar .nav-item:active { transform: scale(0.98); }
+  #sidebar .nav-item.active {
+    background: rgba(255,107,107,0.12);
+    color: var(--text);
+  }
+  #sidebar .nav-item.active .emoji { filter: none; }
+
+  #menuBtn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 20px;
+    padding: 4px 8px;
+    margin-left: -8px;
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    overflow: hidden;
+  }
+
+  header {
+    padding: 14px 16px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 17px;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  header .clock {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .day-pill {
+    margin: 10px 16px 0;
+    font-size: 12.5px;
+    color: var(--accent-2);
+    background: rgba(78,205,196,0.1);
+    border: 1px solid rgba(78,205,196,0.25);
+    border-radius: 20px;
+    padding: 6px 12px;
+    display: inline-block;
+    font-weight: 600;
+  }
+
+  .status-row {
+    margin: 10px 16px 0;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    font-size: 11.5px;
+    padding: 4px 9px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .badge.now { background: rgba(255,107,107,0.15); color: var(--accent); border: 1px solid rgba(255,107,107,0.35); }
+  .badge.next { background: rgba(255,193,84,0.12); color: #ffc154; border: 1px solid rgba(255,193,84,0.3); }
+  .badge.past { background: rgba(154,163,181,0.1); color: var(--text-dim); border: 1px solid var(--border); }
+  .badge.future { background: rgba(154,163,181,0.08); color: var(--text-dim); border: 1px solid var(--border); }
+
+  .variant-row {
+    display: none;
+    margin: 10px 16px 0;
+    gap: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .variant-row.show { display: flex; }
+  .variant-row button {
+    flex: 1;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 6px;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .variant-row button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .variant-row button:active:not(.active) { background: rgba(255,255,255,0.05); }
+
+  main {
+    flex: 1;
+    min-height: 0;
+    padding: 14px 16px 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .card {
+    background: linear-gradient(160deg, var(--card-2), var(--card));
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 18px 18px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+    overflow-y: auto;
+  }
+
+  .time-range {
+    font-size: 15px;
+    color: var(--accent-2);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 6px;
+  }
+
+  .title {
+    font-size: 23px;
+    font-weight: 750;
+    line-height: 1.25;
+    margin: 0 0 8px;
+  }
+
+  .address {
+    font-size: 13.5px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    line-height: 1.4;
+  }
+  .address::before { content: "📍 "; }
+
+  .nearby-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .nearby-chip {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.25);
+    border-radius: 20px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-2);
+    cursor: pointer;
+  }
+  .nearby-chip:active { transform: scale(0.96); }
+  .nearby-chip .nearby-emoji { font-size: 14px; }
+
+  .notes {
+    font-size: 14.5px;
+    line-height: 1.55;
+    color: #dfe3ec;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+
+  .details-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--accent-2);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    margin-bottom: 14px;
+  }
+  .details-toggle:active { transform: scale(0.96); }
+  .details-toggle .chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+    font-size: 10px;
+  }
+  .details-toggle.open .chevron { transform: rotate(180deg); }
+
+  .full-details {
+    display: none;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #cfd5e2;
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    white-space: pre-wrap;
+  }
+  .full-details.show { display: block; }
+
+  .distance-box {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(78,205,196,0.08);
+    border: 1px solid rgba(78,205,196,0.2);
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .distance-box .dist-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .distance-box .label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+  .distance-box .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .icon-btn {
+    background: var(--accent-2);
+    color: #08201d;
+    border: none;
+    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .icon-btn:active { transform: scale(0.93); }
+  .icon-btn.maps-btn {
+    background: rgba(78,205,196,0.15);
+    color: var(--accent-2);
+    border: 1px solid rgba(78,205,196,0.3);
+  }
+  .remaining-box {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid rgba(255,107,107,0.25);
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .remaining-box .label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+  }
+  .remaining-box .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .remaining-box .remaining-emoji {
+    font-size: 22px;
+  }
+
+  nav.controls {
+    display: flex;
+    gap: 10px;
+    padding: 12px 16px calc(14px + var(--safe-bottom));
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  nav.controls button {
+    flex: 1;
+    padding: 14px 8px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+  }
+  nav.controls button:disabled {
+    opacity: 0.35;
+  }
+  nav.controls button:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+  nav.controls button.primary {
+    flex: 0 0 auto;
+    width: 52px;
+    padding: 14px 8px;
+    background: linear-gradient(160deg, var(--accent), #e0524f);
+    border-color: transparent;
+    color: white;
+  }
+  nav.controls button.primary span:first-child {
+    font-size: 19px;
+    line-height: 1;
+  }
+  nav.controls button .sub {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--text-dim);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  nav.controls button.primary .sub { display: none; }
+
+  .progress-dots {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 16px 0;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    max-height: 42px;
+    overflow: hidden;
+  }
+  .progress-dots .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+  .progress-dots .dot.done { background: var(--text-dim); }
+  .progress-dots .dot.active { background: var(--accent); width: 16px; border-radius: 4px; }
+
+  .empty-state {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 20px;
+  }
+
+  /* Install banner */
+  #installBanner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 16px 0;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(255,107,107,0.15), rgba(78,205,196,0.12));
+    border: 1px solid rgba(255,107,107,0.3);
+    border-radius: 14px;
+  }
+  #installBanner.show { display: flex; }
+  #installBanner .icon {
+    font-size: 26px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  #installBanner .text {
+    flex: 1;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--text);
+  }
+  #installBanner .text b { color: var(--accent-2); }
+  #installBanner .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+  #installBanner button.install-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #installBanner button.dismiss-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 11.5px;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+
+  #offlineBadge {
+    display: none;
+    margin: 8px 16px 0;
+    font-size: 11.5px;
+    color: #ffc154;
+    background: rgba(255,193,84,0.1);
+    border: 1px solid rgba(255,193,84,0.3);
+    border-radius: 10px;
+    padding: 6px 10px;
+    text-align: center;
+  }
+  #offlineBadge.show { display: block; }
+
+  /* Reference page views */
+  #referenceView {
+    display: none;
+    flex: 1;
+    padding: 14px 16px 20px;
+    overflow-y: auto;
+  }
+  #referenceView.show { display: block; }
+  #itineraryView {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #itineraryView.hide { display: none; }
+
+  .ref-page-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 4px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ref-card {
+    background: linear-gradient(160deg, var(--card-2), var(--card));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .ref-card .ref-heading {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent-2);
+    margin-bottom: 8px;
+  }
+  .ref-card p {
+    font-size: 14px;
+    line-height: 1.55;
+    color: #dfe3ec;
+    margin: 0 0 8px;
+  }
+  .ref-card p:last-child { margin-bottom: 0; }
+  .ref-card ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .ref-card li {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #dfe3ec;
+    margin-bottom: 6px;
+  }
+  .ref-card li:last-child { margin-bottom: 0; }
+  .ref-area-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+  .ref-area-block { margin-bottom: 12px; }
+  .ref-area-block:last-child { margin-bottom: 0; }
+  .ref-intro-note {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+  .ref-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+<div id="appShell">
+<div id="sidebarOverlay"></div>
+<aside id="sidebar">
+  <div class="sidebar-header">🗾 Tokyo Trip Menu</div>
+  <nav id="sidebarNav"></nav>
+</aside>
+<div id="app">
+  <div id="installBanner">
+    <div class="icon">📲</div>
+    <div class="text" id="installText"><b>Install this app</b> for fullscreen offline access during your trip.</div>
+    <div class="actions">
+      <button class="install-btn" id="installBtn">Install</button>
+      <button class="dismiss-btn" id="dismissInstallBtn">Not now</button>
+    </div>
+  </div>
+  <div id="offlineBadge">📡 Offline — showing cached itinerary</div>
+
+  <header>
+    <button id="menuBtn" aria-label="Open menu">☰</button>
+    <h1>🗾 Tokyo Trip</h1>
+    <div class="clock" id="clock">--:--:--</div>
+  </header>
+
+  <div id="itineraryView">
+    <div class="day-pill" id="dayPill">—</div>
+    <div class="status-row" id="statusRow"></div>
+    <div class="variant-row" id="variantRow"></div>
+
+    <main>
+      <div class="card" id="card">
+        <div class="empty-state">Loading itinerary…</div>
+      </div>
+    </main>
+
+    <div class="progress-dots" id="dots"></div>
+
+    <nav class="controls">
+      <button id="prevBtn">
+        <span>◀ Prev</span>
+        <span class="sub" id="prevSub"></span>
+      </button>
+      <button id="nowBtn" class="primary" aria-label="Jump to current">
+        <span>●</span>
+      </button>
+      <button id="nextBtn">
+        <span>Next ▶</span>
+        <span class="sub" id="nextSub"></span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="referenceView"></div>
+</div>
+</div>
+
+<script src="itinerary.js"></script>
+<script src="reference.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---------- State ----------
+  var DAY4_VARIANT_KEY = "tripapp_day4_variant";
+  var day4Variant = "A-clear"; // default
+  try {
+    var savedVariant = localStorage.getItem(DAY4_VARIANT_KEY);
+    if (savedVariant === "A-clear" || savedVariant === "A-rainy" || savedVariant === "B") {
+      day4Variant = savedVariant;
+    }
+  } catch (e) {}
+
+  function computeItems() {
+    // Include every item with no dayVariant (all other days), plus only the
+    // Day 4 items matching the currently selected variant.
+    return ITINERARY.filter(function (it) {
+      return !it.dayVariant || it.dayVariant === day4Variant;
+    });
+  }
+
+  var items = computeItems();
+  var idx = 0; // currently displayed index
+  var userPos = null; // {lat, lng}
+  var watchId = null;
+  var detailsExpanded = false; // "Show full details" toggle state for the current card
+
+  // ---------- Helpers ----------
+  function toMinutes(hhmm) {
+    if (!hhmm) return null;
+    var p = hhmm.split(":");
+    return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+  }
+
+  function parseItemDateTime(item, which) {
+    // which: 'start' or 'end'. Returns a Date in local (JST-agnostic: we treat
+    // the device's local time directly against the stated HH:MM, which is
+    // intended to be read as Japan local time during the trip).
+    var t = item[which];
+    if (!t) return null;
+    var d = new Date(item.day + "T" + t + ":00");
+    return d;
+  }
+
+  function fmtTimeRange(item) {
+    return (item.start || "") + (item.end ? " – " + item.end : "");
+  }
+
+  // ---------- Nearby info chips (Halal / Food / Coffee / Extra) ----------
+  var NEARBY_CATEGORY_META = {
+    halalFood: { emoji: "🕌", label: "Halal" },
+    foodToTry: { emoji: "🍡", label: "Food" },
+    coffeeShops: { emoji: "☕", label: "Coffee" },
+    extraSpots: { emoji: "✨", label: "Extra" }
+  };
+  // Order chips consistently regardless of object key iteration order.
+  var NEARBY_CATEGORY_ORDER = ["halalFood", "foodToTry", "coffeeShops", "extraSpots"];
+
+  function buildNearbyRow(zone) {
+    if (!zone || typeof ZONE_CATEGORIES === "undefined") return null;
+    var cats = ZONE_CATEGORIES[zone];
+    if (!cats) return null;
+
+    var row = document.createElement("div");
+    row.className = "nearby-row";
+    var any = false;
+
+    NEARBY_CATEGORY_ORDER.forEach(function (key) {
+      if (!cats[key]) return;
+      any = true;
+      var meta = NEARBY_CATEGORY_META[key];
+      var chip = document.createElement("button");
+      chip.className = "nearby-chip";
+      chip.type = "button";
+      var emojiSpan = document.createElement("span");
+      emojiSpan.className = "nearby-emoji";
+      emojiSpan.textContent = meta.emoji;
+      var labelSpan = document.createElement("span");
+      labelSpan.textContent = meta.label;
+      chip.appendChild(emojiSpan);
+      chip.appendChild(labelSpan);
+      chip.addEventListener("click", function () {
+        if (window.TripApp && window.TripApp.navigateTo) {
+          window.TripApp.navigateTo(key);
+        }
+      });
+      row.appendChild(chip);
+    });
+
+    return any ? row : null;
+  }
+
+  // ---------- Day 4 Option A/B (and A-clear/A-rainy) switcher ----------
+  var VARIANT_LABELS = {
+    "A-clear": "Kamakura ☀️",
+    "A-rainy": "Kamakura 🌧️",
+    "B": "Karuizawa"
+  };
+  var VARIANT_ORDER = ["A-clear", "A-rainy", "B"];
+
+  function setDay4Variant(variant) {
+    if (variant === day4Variant) return;
+    day4Variant = variant;
+    try { localStorage.setItem(DAY4_VARIANT_KEY, variant); } catch (e) {}
+
+    // Preserve context: try to stay on the same day/stop-index-within-day
+    // after switching lists, falling back to the first item of the new
+    // variant's day if the old index doesn't map cleanly.
+    var oldItem = items[idx];
+    items = computeItems();
+    var sameDayIdx = items.findIndex(function (it) { return it.day === oldItem.day; });
+    idx = sameDayIdx >= 0 ? sameDayIdx : Math.min(idx, items.length - 1);
+    render();
+  }
+
+  function renderVariantRow(currentItem) {
+    var row = document.getElementById("variantRow");
+    row.innerHTML = "";
+    // Only show the switcher while browsing Aug 19 (Day 4), which is the
+    // only date with multiple planning options.
+    if (currentItem.day !== "2026-08-19") {
+      row.classList.remove("show");
+      return;
+    }
+    row.classList.add("show");
+    VARIANT_ORDER.forEach(function (v) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = v === day4Variant ? "active" : "";
+      btn.textContent = VARIANT_LABELS[v];
+      btn.addEventListener("click", function () { setDay4Variant(v); });
+      row.appendChild(btn);
+    });
+  }
+
+  function fmtDist(km) {
+    if (km == null) return "—";
+    if (km < 1) return Math.round(km * 1000) + " m";
+    return km.toFixed(1) + " km";
+  }
+
+  function fmtRemaining(item, now) {
+    var e = parseItemDateTime(item, "end") ||
+      (function () {
+        var s = parseItemDateTime(item, "start");
+        return s ? new Date(s.getTime() + 30 * 60000) : null;
+      })();
+    if (!e) return "—";
+    var ms = e.getTime() - now.getTime();
+    if (ms <= 0) return "0 min";
+    var totalMin = Math.ceil(ms / 60000);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    if (h > 0) return h + "h " + m + "m";
+    return m + " min";
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    var R = 6371;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  // Find "current" item index based on now: the item whose start<=now<end.
+  // If none active, pick the next upcoming item; if past all, pick the last.
+  function findCurrentIndex(now) {
+    var nowMs = now.getTime();
+    for (var i = 0; i < items.length; i++) {
+      var s = parseItemDateTime(items[i], "start");
+      var e = parseItemDateTime(items[i], "end") || (s ? new Date(s.getTime() + 30 * 60000) : null);
+      if (s && e && nowMs >= s.getTime() && nowMs < e.getTime()) {
+        return i;
+      }
+    }
+    // none active — find next upcoming
+    for (var j = 0; j < items.length; j++) {
+      var s2 = parseItemDateTime(items[j], "start");
+      if (s2 && s2.getTime() > nowMs) return j;
+    }
+    // all past
+    return items.length - 1;
+  }
+
+  function itemStatus(item, now) {
+    var s = parseItemDateTime(item, "start");
+    var e = parseItemDateTime(item, "end") || (s ? new Date(s.getTime() + 30 * 60000) : null);
+    if (!s) return "future";
+    var nowMs = now.getTime();
+    if (nowMs >= s.getTime() && e && nowMs < e.getTime()) return "now";
+    if (nowMs < s.getTime()) return "future";
+    return "past";
+  }
+
+  // ---------- Rendering ----------
+  function render() {
+    var item = items[idx];
+    var now = new Date();
+
+    document.getElementById("dayPill").textContent = item.dayLabel;
+
+    // status row
+    var statusRow = document.getElementById("statusRow");
+    statusRow.innerHTML = "";
+    var st = itemStatus(item, now);
+    var stLabel = st === "now" ? "● HAPPENING NOW" : st === "future" ? "UPCOMING" : "PAST";
+    var stClass = st === "now" ? "now" : st === "future" ? "next" : "past";
+    var b = document.createElement("span");
+    b.className = "badge " + stClass;
+    b.textContent = stLabel;
+    statusRow.appendChild(b);
+
+    var posBadge = document.createElement("span");
+    posBadge.className = "badge future";
+    posBadge.textContent = "Stop " + (idx + 1) + " / " + items.length;
+    statusRow.appendChild(posBadge);
+
+    renderVariantRow(item);
+
+    // card
+    var card = document.getElementById("card");
+    card.innerHTML = "";
+
+    var timeEl = document.createElement("div");
+    timeEl.className = "time-range";
+    timeEl.textContent = fmtTimeRange(item);
+    card.appendChild(timeEl);
+
+    var titleEl = document.createElement("div");
+    titleEl.className = "title";
+    titleEl.textContent = item.title;
+    card.appendChild(titleEl);
+
+    var addrEl = document.createElement("div");
+    addrEl.className = "address";
+    addrEl.textContent = item.address;
+    card.appendChild(addrEl);
+
+    var nearbyRow = buildNearbyRow(item.zone);
+    if (nearbyRow) card.appendChild(nearbyRow);
+
+    if (item.notes) {
+      var notesEl = document.createElement("div");
+      notesEl.className = "notes";
+      notesEl.textContent = item.notes;
+      card.appendChild(notesEl);
+    }
+
+    if (item.fullDetails) {
+      var toggleBtn = document.createElement("button");
+      toggleBtn.className = "details-toggle";
+      toggleBtn.type = "button";
+      var toggleLabel = document.createElement("span");
+      toggleLabel.textContent = detailsExpanded ? "Hide full details" : "Show full details";
+      var chevron = document.createElement("span");
+      chevron.className = "chevron";
+      chevron.textContent = "▾";
+      toggleBtn.appendChild(toggleLabel);
+      toggleBtn.appendChild(chevron);
+
+      var detailsEl = document.createElement("div");
+      detailsEl.className = "full-details";
+      detailsEl.textContent = item.fullDetails;
+
+      if (detailsExpanded) {
+        detailsEl.classList.add("show");
+        toggleBtn.classList.add("open");
+      }
+
+      toggleBtn.addEventListener("click", function () {
+        var isOpen = detailsEl.classList.toggle("show");
+        toggleBtn.classList.toggle("open", isOpen);
+        toggleLabel.textContent = isOpen ? "Hide full details" : "Show full details";
+        detailsExpanded = isOpen;
+      });
+
+      card.appendChild(toggleBtn);
+      card.appendChild(detailsEl);
+    }
+
+    var distBox = document.createElement("div");
+    distBox.className = "distance-box";
+    var distInfo = document.createElement("div");
+    distInfo.className = "dist-info";
+    var distLabel = document.createElement("div");
+    distLabel.className = "label";
+    distLabel.textContent = "Distance to here";
+    var distValue = document.createElement("div");
+    distValue.className = "value";
+    distValue.id = "distValue";
+
+    if (userPos && item.lat != null && item.lng != null) {
+      var km = haversineKm(userPos.lat, userPos.lng, item.lat, item.lng);
+      distValue.textContent = fmtDist(km);
+    } else {
+      distValue.textContent = "—";
+    }
+    distInfo.appendChild(distLabel);
+    distInfo.appendChild(distValue);
+
+    distBox.appendChild(distInfo);
+
+    var gpsBtn = document.createElement("button");
+    gpsBtn.className = "icon-btn";
+    gpsBtn.type = "button";
+    gpsBtn.setAttribute("aria-label", userPos ? "Update location" : "Locate me");
+    gpsBtn.textContent = userPos ? "🔄" : "📡";
+    gpsBtn.onclick = requestLocation;
+    distBox.appendChild(gpsBtn);
+
+    if (item.lat != null && item.lng != null) {
+      var mapBtn = document.createElement("a");
+      mapBtn.className = "icon-btn maps-btn";
+      mapBtn.href = "https://www.google.com/maps/search/?api=1&query=" + item.lat + "," + item.lng;
+      mapBtn.target = "_blank";
+      mapBtn.rel = "noopener";
+      mapBtn.setAttribute("aria-label", "Open in Google Maps");
+      mapBtn.textContent = "🗺️";
+      distBox.appendChild(mapBtn);
+    }
+
+    card.appendChild(distBox);
+
+    // Remaining-time box: only meaningful when this stop is the one
+    // "happening now" — a stop a day ahead/behind has no live countdown.
+    if (st === "now") {
+      var remBox = document.createElement("div");
+      remBox.className = "remaining-box";
+      var remInfo = document.createElement("div");
+      var remLabel = document.createElement("div");
+      remLabel.className = "label";
+      remLabel.textContent = "Time remaining";
+      var remValue = document.createElement("div");
+      remValue.className = "value";
+      remValue.id = "remValue";
+      remValue.textContent = fmtRemaining(item, now);
+      remInfo.appendChild(remLabel);
+      remInfo.appendChild(remValue);
+      var remEmoji = document.createElement("div");
+      remEmoji.className = "remaining-emoji";
+      remEmoji.textContent = "⏳";
+      remBox.appendChild(remInfo);
+      remBox.appendChild(remEmoji);
+      card.appendChild(remBox);
+    }
+
+    // nav buttons
+    var prevBtn = document.getElementById("prevBtn");
+    var nextBtn = document.getElementById("nextBtn");
+    prevBtn.disabled = idx <= 0;
+    nextBtn.disabled = idx >= items.length - 1;
+    document.getElementById("prevSub").textContent = idx > 0 ? items[idx - 1].title : "";
+    document.getElementById("nextSub").textContent = idx < items.length - 1 ? items[idx + 1].title : "";
+
+    renderDots();
+  }
+
+  function renderDots() {
+    var now = new Date();
+    var dots = document.getElementById("dots");
+    dots.innerHTML = "";
+    items.forEach(function (it, i) {
+      var d = document.createElement("div");
+      var st = itemStatus(it, now);
+      var cls = "dot";
+      if (i === idx) cls += " active";
+      else if (st === "past") cls += " done";
+      d.className = cls;
+      dots.appendChild(d);
+    });
+  }
+
+  function updateClock() {
+    var now = new Date();
+    document.getElementById("clock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  // ---------- GPS ----------
+  function requestLocation() {
+    var valueEl = document.getElementById("distValue");
+    if (!("geolocation" in navigator)) {
+      if (valueEl) valueEl.textContent = "GPS not supported";
+      return;
+    }
+    if (valueEl) valueEl.textContent = "Locating…";
+
+    if (watchId != null) {
+      navigator.geolocation.clearWatch(watchId);
+    }
+    watchId = navigator.geolocation.watchPosition(
+      function (pos) {
+        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        render();
+      },
+      function (err) {
+        var v = document.getElementById("distValue");
+        if (v) {
+          if (err.code === 1) v.textContent = "Permission denied";
+          else v.textContent = "GPS error";
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 15000 }
+    );
+  }
+
+  // ---------- Navigation ----------
+  document.getElementById("prevBtn").addEventListener("click", function () {
+    if (idx > 0) { idx--; detailsExpanded = false; render(); }
+  });
+  document.getElementById("nextBtn").addEventListener("click", function () {
+    if (idx < items.length - 1) { idx++; detailsExpanded = false; render(); }
+  });
+  document.getElementById("nowBtn").addEventListener("click", function () {
+    idx = findCurrentIndex(new Date());
+    detailsExpanded = false;
+    render();
+  });
+
+  // ---------- Init ----------
+  idx = findCurrentIndex(new Date());
+  render();
+  updateClock();
+
+  // Clock ticks every second, independent of the itinerary re-render.
+  setInterval(updateClock, 1000);
+
+  // Re-render periodically so "now/upcoming/past" badges + dots stay fresh,
+  // without forcibly jumping the user's manual navigation. detailsExpanded
+  // is preserved across this re-render so an open "full details" panel
+  // doesn't collapse.
+  setInterval(render, 30000);
+
+  // Try to auto-request location on load (will silently no-op if blocked
+  // until user taps Locate).
+  if ("geolocation" in navigator) {
+    // Don't auto-prompt aggressively on load in case of privacy concerns;
+    // wait for explicit tap. Comment out the next line to keep it manual-only.
+    // requestLocation();
+  }
+
+  // ---------- Install banner (Add to Home Screen) ----------
+  (function () {
+    var banner = document.getElementById("installBanner");
+    var installBtn = document.getElementById("installBtn");
+    var dismissBtn = document.getElementById("dismissInstallBtn");
+    var textEl = document.getElementById("installText");
+    var deferredPrompt = null;
+    var DISMISS_KEY = "tripapp_install_dismissed";
+
+    function isStandalone() {
+      return window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true; // iOS Safari
+    }
+
+    function wasDismissed() {
+      try { return localStorage.getItem(DISMISS_KEY) === "1"; }
+      catch (e) { return false; }
+    }
+
+    function markDismissed() {
+      try { localStorage.setItem(DISMISS_KEY, "1"); } catch (e) {}
+    }
+
+    function showBanner() {
+      if (isStandalone() || wasDismissed()) return;
+      banner.classList.add("show");
+    }
+    function hideBanner() {
+      banner.classList.remove("show");
+    }
+
+    dismissBtn.addEventListener("click", function () {
+      hideBanner();
+      markDismissed();
+    });
+
+    // Android/Chrome/Edge: native install prompt.
+    window.addEventListener("beforeinstallprompt", function (e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      textEl.innerHTML = "<b>Install this app</b> for fullscreen offline access during your trip.";
+      installBtn.textContent = "Install";
+      showBanner();
+    });
+
+    installBtn.addEventListener("click", function () {
+      if (deferredPrompt) {
+        var promptRef = deferredPrompt;
+        deferredPrompt = null;
+        promptRef.prompt();
+        promptRef.userChoice.then(function (choice) {
+          if (choice && choice.outcome === "accepted") {
+            // Actual install now proceeds natively; wait for the
+            // 'appinstalled' event to hide the banner/mark dismissed
+            // rather than assuming success here.
+            installBtn.textContent = "Installing…";
+          } else {
+            // User dismissed the native dialog — keep banner so they can retry.
+            installBtn.textContent = "Install";
+          }
+        }).catch(function () {
+          installBtn.textContent = "Install";
+        });
+      } else {
+        // No native prompt available (already installed, browser doesn't
+        // support it, or the prompt expired). Give explicit feedback
+        // instead of doing nothing silently.
+        if (isStandalone()) {
+          hideBanner();
+          markDismissed();
+        } else {
+          textEl.innerHTML = "Install prompt isn't available right now. In Chrome, "
+            + "open the <b>⋮ menu</b> → <b>\u201CAdd to Home screen\u201D</b> / "
+            + "<b>\u201CInstall app\u201D</b>.";
+          installBtn.textContent = "Got it";
+        }
+      }
+    });
+
+    window.addEventListener("appinstalled", function () {
+      hideBanner();
+      markDismissed();
+    });
+
+    // iOS Safari detection: show manual "Add to Home Screen" instructions,
+    // since iOS does not fire beforeinstallprompt.
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    var isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+    if (isIOS && isSafari && !isStandalone()) {
+      textEl.innerHTML = "<b>Install this app:</b> tap the Share icon "
+        + "<span style=\"font-weight:700\">⬆️</span> below, then "
+        + "<b>\u201CAdd to Home Screen\u201D</b>.";
+      installBtn.textContent = "Got it";
+      installBtn.addEventListener("click", function () {
+        hideBanner();
+        markDismissed();
+      });
+      showBanner();
+    }
+  })();
+
+  // ---------- Offline support: service worker registration ----------
+  // Register immediately (not deferred to 'load') so the browser's PWA
+  // installability check sees an active service worker as early as possible.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(function (err) {
+      console.warn("Service worker registration failed:", err);
+    });
+  }
+
+  (function () {
+    var offlineBadge = document.getElementById("offlineBadge");
+    function updateOnlineStatus() {
+      if (navigator.onLine === false) offlineBadge.classList.add("show");
+      else offlineBadge.classList.remove("show");
+    }
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    updateOnlineStatus();
+  })();
+
+  // ---------- Sidebar navigation + reference pages ----------
+  (function () {
+    var sidebar = document.getElementById("sidebar");
+    var overlay = document.getElementById("sidebarOverlay");
+    var menuBtn = document.getElementById("menuBtn");
+    var sidebarNav = document.getElementById("sidebarNav");
+    var itineraryView = document.getElementById("itineraryView");
+    var referenceView = document.getElementById("referenceView");
+
+    // Sidebar menu entries: 'itinerary' is the special first item (the
+    // existing timeline view); the rest map 1:1 to REFERENCE keys.
+    var NAV_ITEMS = [
+      { key: "itinerary", emoji: "🗺️", label: "Itinerary" },
+      { key: "halalFood", emoji: "🕌", label: "Halal Food Guide" },
+      { key: "foodToTry", emoji: "🍡", label: "Food & Snacks to Try" },
+      { key: "coffeeShops", emoji: "☕", label: "Coffee Shops" },
+      { key: "breakfast", emoji: "🍙", label: "Breakfast & Konbini" },
+      { key: "shoppingTips", emoji: "🛍️", label: "Shopping Tips" },
+      { key: "extraSpots", emoji: "✨", label: "Extra / Optional Spots" },
+      { key: "heatTips", emoji: "🌡️", label: "Heat & Humidity Tips" },
+      { key: "packing", emoji: "🎒", label: "Packing Reminders" },
+      { key: "generalNotes", emoji: "📝", label: "General Notes" }
+    ];
+
+    var currentView = "itinerary";
+
+    function openSidebar() {
+      sidebar.classList.add("open");
+      overlay.classList.add("show");
+    }
+    function closeSidebar() {
+      sidebar.classList.remove("open");
+      overlay.classList.remove("show");
+    }
+
+    function renderSidebarNav() {
+      sidebarNav.innerHTML = "";
+      NAV_ITEMS.forEach(function (item) {
+        var btn = document.createElement("button");
+        btn.className = "nav-item" + (item.key === currentView ? " active" : "");
+        var emojiSpan = document.createElement("span");
+        emojiSpan.className = "emoji";
+        emojiSpan.textContent = item.emoji;
+        var labelSpan = document.createElement("span");
+        labelSpan.textContent = item.label;
+        btn.appendChild(emojiSpan);
+        btn.appendChild(labelSpan);
+        btn.addEventListener("click", function () {
+          navigateTo(item.key);
+          closeSidebar();
+        });
+        sidebarNav.appendChild(btn);
+      });
+    }
+
+    // ---- Reference page rendering helpers ----
+    function el(tag, className, text) {
+      var e = document.createElement(tag);
+      if (className) e.className = className;
+      if (text != null) e.textContent = text;
+      return e;
+    }
+
+    function renderList(items) {
+      var ul = el("ul");
+      items.forEach(function (t) { ul.appendChild(el("li", null, t)); });
+      return ul;
+    }
+
+    function renderSections(sections) {
+      var frag = document.createDocumentFragment();
+      sections.forEach(function (sec) {
+        var card = el("div", "ref-card");
+        card.appendChild(el("div", "ref-heading", sec.heading));
+        card.appendChild(renderList(sec.list));
+        frag.appendChild(card);
+      });
+      return frag;
+    }
+
+    function renderByArea(byArea) {
+      var card = el("div", "ref-card");
+      byArea.forEach(function (a) {
+        var block = el("div", "ref-area-block");
+        block.appendChild(el("div", "ref-area-name", a.area));
+        block.appendChild(el("p", null, a.options));
+        card.appendChild(block);
+      });
+      return card;
+    }
+
+    function renderReferencePage(key) {
+      var data = REFERENCE[key];
+      referenceView.innerHTML = "";
+      if (!data) return;
+
+      var backBtn = el("button", "ref-back-btn", "◀ Back to Itinerary");
+      backBtn.addEventListener("click", function () { navigateTo("itinerary"); });
+      referenceView.appendChild(backBtn);
+
+      var titleEl = el("div", "ref-page-title");
+      titleEl.textContent = (data.icon ? data.icon + " " : "") + data.title;
+      referenceView.appendChild(titleEl);
+
+      if (data.intro) {
+        referenceView.appendChild(el("div", "ref-intro-note", data.intro));
+      }
+
+      // Generic body paragraphs (heatTips, some free-text arrays)
+      if (data.body && Array.isArray(data.body)) {
+        var bodyCard = el("div", "ref-card");
+        data.body.forEach(function (p) { bodyCard.appendChild(el("p", null, p)); });
+        referenceView.appendChild(bodyCard);
+      }
+
+      // Simple flat item lists (packing, generalNotes)
+      if (data.items && Array.isArray(data.items) && typeof data.items[0] === "string") {
+        var itemsCard = el("div", "ref-card");
+        itemsCard.appendChild(renderList(data.items));
+        referenceView.appendChild(itemsCard);
+      }
+
+      // Named items with detail (extraSpots)
+      if (data.items && Array.isArray(data.items) && typeof data.items[0] === "object") {
+        var namedCard = el("div", "ref-card");
+        data.items.forEach(function (it, i) {
+          var block = el("div", "ref-area-block");
+          block.appendChild(el("div", "ref-area-name", it.name));
+          block.appendChild(el("p", null, it.detail));
+          namedCard.appendChild(block);
+        });
+        referenceView.appendChild(namedCard);
+      }
+
+      // Area-grouped content (halalFood, coffeeShops)
+      if (data.byArea) {
+        referenceView.appendChild(renderByArea(data.byArea));
+      }
+
+      // Sectioned content (breakfast, foodToTry, shoppingTips)
+      if (data.sections) {
+        referenceView.appendChild(renderSections(data.sections));
+      }
+
+      // Trailing notes
+      if (data.halalNote) {
+        var noteCard = el("div", "ref-card");
+        noteCard.appendChild(el("p", null, "🕌 " + data.halalNote));
+        referenceView.appendChild(noteCard);
+      }
+      if (data.note) {
+        var note2Card = el("div", "ref-card");
+        note2Card.appendChild(el("p", null, data.note));
+        referenceView.appendChild(note2Card);
+      }
+    }
+
+    function navigateTo(key) {
+      currentView = key;
+      renderSidebarNav();
+      if (key === "itinerary") {
+        itineraryView.classList.remove("hide");
+        referenceView.classList.remove("show");
+      } else {
+        itineraryView.classList.add("hide");
+        referenceView.classList.add("show");
+        renderReferencePage(key);
+      }
+    }
+
+    menuBtn.addEventListener("click", openSidebar);
+    overlay.addEventListener("click", closeSidebar);
+
+    renderSidebarNav();
+
+    // Expose navigateTo so itinerary "nearby info" chips can jump directly
+    // to a reference page without going through the sidebar menu.
+    window.TripApp = window.TripApp || {};
+    window.TripApp.navigateTo = navigateTo;
+  })();
+})();
+</script>
+</body>
+</html>
